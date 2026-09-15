@@ -3,12 +3,14 @@ name: KiCad visual diff
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, closed]
     paths:
       - '**.kicad_sch'
       - '**.kicad_pcb'
       - '**.kicad_pro'
       - '.kibot/config_diff.yml'
       - '.github/workflows/kicad-diff.yml'
+      - '.github/scripts/update-pr-diffs-branch.sh'
 
 permissions:
   contents: read
@@ -19,7 +21,15 @@ concurrency:
 
 jobs:
   diff:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # push the diff images to the pr-diffs branch
+      pull-requests: write  # post / update the diff comment
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      # PRs from forks get a read-only token: they still get the artifact, but no images or comment
+      SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v7
@@ -29,7 +39,9 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch the target branch
-        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
       # The KiBot action runs as root in a container, but the checkout belongs to
       # the runner user, so git refuses to touch it ("dubious ownership").
@@ -48,7 +60,7 @@ jobs:
           schema: KiCad-git-tests.kicad_sch
           board: KiCad-git-tests.kicad_pcb
 
-      - name: Upload diff as a build artifact
+      - name: Upload diff PDFs as a build artifact
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -56,13 +68,98 @@ jobs:
           path: kibot-diff
           if-no-files-found: error
 
-      - name: Add a pointer to the job summary
-        if: success()
+      - name: Render diff pages as PNG
+        if: env.SAME_REPO == 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -euo pipefail
+          # poppler-utils provides pdftoppm; retry with a fresh package index if the cached one is stale
+          sudo apt-get install -y -qq poppler-utils >/dev/null \
+            || { sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils >/dev/null; }
+
+          short="${HEAD_SHA::7}"
+          # One folder per pushed commit, so browsers and GitHub's image proxy never show a stale cached image
+          out="$RUNNER_TEMP/diff-png/$short"
+          mkdir -p "$out"
+          find kibot-diff -name '*.pdf' -print0 | while IFS= read -r -d '' pdf; do
+            pdftoppm -png -r 150 "$pdf" "$out/$(basename "$pdf" .pdf)"
+          done
+          ls -l "$out"
+          echo "SHORT_SHA=$short" >> "$GITHUB_ENV"
+
+      - name: Publish images to the pr-diffs branch
+        if: env.SAME_REPO == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/update-pr-diffs-branch.sh "$PR" "$RUNNER_TEMP/diff-png"
+
+      - name: Post or update the PR comment
+        if: env.SAME_REPO == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          marker='<!-- kicad-visual-diff -->'
+          img_base="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/pr-diffs/pr-${PR}/${SHORT_SHA}"
+          body="$RUNNER_TEMP/diff-comment.md"
+
+          cd "$RUNNER_TEMP/diff-png/$SHORT_SHA"
           {
-            echo "### KiCad visual diff"
+            echo "$marker"
+            echo "## KiCad visual diff"
             echo
-            echo "Compared \`${{ github.head_ref }}\` against \`${{ github.base_ref }}\`."
-            echo "Download **kicad-diff-pr-${{ github.event.pull_request.number }}** from the artifacts of this run."
-            echo "Green = added by this PR, red = removed."
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo "\`${HEAD_REF}\` @ ${SHORT_SHA} compared with \`${BASE_REF}\`: **green** = added, **red** = removed."
+            for kind in sch:Schematic pcb:PCB; do
+              pngs=( *diff_"${kind%%:*}"*.png )
+              [ ${#pngs[@]} -eq 0 ] && continue
+              echo
+              echo "<details open><summary><b>${kind#*:}</b> (${#pngs[@]} page(s))</summary>"
+              echo
+              # Blank line after each image so pages stack instead of sitting side by side
+              for png in "${pngs[@]}"; do
+                echo "![${png}](${img_base}/${png})"
+                echo
+              done
+              echo "</details>"
+            done
+            echo
+            echo "<sub>Updated on every push to this PR. Full-resolution PDFs: artifacts of [this workflow run](${RUN_URL}).</sub>"
+          } > "$body"
+
+          # Edit our previous comment instead of adding a new one on every push
+          ids=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"${marker}\"))) | .id")
+          id="${ids%%$'\n'*}"
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@"$body" >/dev/null
+            echo "Updated comment $id"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@"$body" >/dev/null
+            echo "Posted a new comment"
+          fi
+
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the helper script
+        uses: actions/checkout@v7
+        with:
+          # The PR's merge ref can disappear once it is closed; its head commit doesn't
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: .github/scripts
+
+      - name: Remove this PR's images from the pr-diffs branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash .github/scripts/update-pr-diffs-branch.sh "$PR"
