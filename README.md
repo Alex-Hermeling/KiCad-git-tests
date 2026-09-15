@@ -21,7 +21,6 @@ which git handles badly. The whole discipline is keeping the second group out.
 | `*.kicad_pro` | Project settings, design rules, net classes |
 | `*.kicad_sch` | Schematic — text, diffable |
 | `*.kicad_pcb` | Board layout — text, diffable |
-| `fp-lib-table` / `sym-lib-table` | Project-local library tables |
 | `*.kicad_dru` | Custom design rules, if present |
 | Custom `*.kicad_sym` / `*.kicad_mod` | Project-specific symbols and footprints |
 
