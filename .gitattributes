@@ -9,6 +9,10 @@
 fp-lib-table  text eol=lf
 sym-lib-table text eol=lf
 
+# Shell scripts and git hooks break with CRLF endings
+*.sh             text eol=lf
+.githooks/*      text eol=lf
+
 # Genuinely binary
 *.zip  binary
 *.step binary

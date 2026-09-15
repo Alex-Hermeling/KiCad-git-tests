@@ -45,6 +45,38 @@ some people commit those deliberately, tagged, as a record of what was built.
 misdetects one as binary and refuses to diff it, and marks zips and STEP files as
 genuinely binary.
 
+### Enforced, not just ignored
+
+`.gitignore` only stops an accidental `git add .`. A `git add -f` or a Git GUI
+can still commit these files, so there are two checks on top of it. Both use the
+same rules, in `.github/scripts/check-repo-files.sh`:
+
+| Result | Files |
+|---|---|
+| ❌ **Blocked** | `*.lck`, `*.kicad_prl`, `*-backups/`, `_autosave-*`, `*.bak` / `*-bak`, `fp-info-cache`, `.DS_Store` / `Thumbs.db` |
+| ⚠️ **Warning only** | Gerbers (`*.gbr`, `*.gtl`, …), drill files, `*.pos` / `*-pos.csv`, `*-bom.csv`, `*.zip`, `*.net`, anything in `gerbers/`, `production/`, `fab/`, `kibot-output/` |
+
+- **On pull requests into `main`**, `.github/workflows/repo-hygiene.yml` runs the
+  **Repo file check**. It fails if the PR adds a blocked file. For fabrication
+  output it passes, but posts a PR comment asking the reviewer to confirm the
+  files were committed on purpose. Deleting a bad file never trips the check.
+- **Locally**, `.githooks/pre-commit` refuses the commit for blocked files and
+  prints a warning for fab output. Turn it on once per clone:
+
+  ```bash
+  git config core.hooksPath .githooks
+  ```
+
+  To skip it once, on purpose: `git commit --no-verify`.
+
+If a blocked file does get in, remove it from git and keep your local copy with
+`git rm --cached -- <file>`, then commit.
+
+**One-time GitHub setup:** in *Settings → Rules → Rulesets* (or *Settings →
+Branches*), require pull requests for `main` and add **Repo file check** as a
+required status check. Without that, a PR with a failing check can still be
+merged, and direct pushes to `main` skip the check entirely.
+
 ---
 
 ## 2. Three habits specific to KiCad
@@ -125,6 +157,7 @@ git push -u origin main
 | `.github/workflows/kicad-export.yml` | push to `main` | Schematic SVG/PDF, PCB top/bottom PNG — uploaded as an artifact **and** published to the `previews` branch |
 | `.github/workflows/kicad-diff.yml` | pull request into `main` | An **interactive KiRi diff** of the schematic and PCB vs `main`, linked from a PR comment (updated on every push). Red/green PDFs are uploaded as an artifact. |
 | `.github/workflows/kicad-pages.yml` | started by `kicad-diff.yml` | Publishes the KiRi sites to GitHub Pages |
+| `.github/workflows/repo-hygiene.yml` | pull request into `main` | Fails on lock/backup/personal files and warns on fab output (see [section 1](#enforced-not-just-ignored)) |
 
 Each open PR gets its own page at
 `https://alex-hermeling.github.io/KiCad-git-tests/pr-<number>/`. The sites are
