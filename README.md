@@ -123,7 +123,10 @@ git push -u origin main
 | Workflow | Trigger | Produces |
 |---|---|---|
 | `.github/workflows/kicad-export.yml` | push to `main` | Schematic SVG/PDF, PCB top/bottom PNG — uploaded as an artifact **and** published to the `previews` branch |
-| `.github/workflows/kicad-diff.yml` | pull request into `main` | Red/green overlay PDFs of the schematic and PCB vs `main` — uploaded as an artifact |
+| `.github/workflows/kicad-diff.yml` | pull request into `main` | Red/green overlay of the schematic and PCB vs `main`, shown **as images in a PR comment** (updated on every push). PDFs are uploaded as an artifact. |
+
+The PR comment images live on the `pr-diffs` branch, one `pr-<number>/` folder
+per open PR, removed automatically when the PR is closed.
 
 KiBot settings live in `.kibot/config.yml` (previews) and `.kibot/config_diff.yml` (diff).
 
