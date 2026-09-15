@@ -24,11 +24,12 @@ jobs:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
-      contents: write       # push the diff images to the pr-diffs branch
+      contents: write       # push the KiRi site to the pr-diffs branch
       pull-requests: write  # post / update the diff comment
+      actions: write        # start the GitHub Pages deploy workflow
     env:
       PR: ${{ github.event.pull_request.number }}
-      # PRs from forks get a read-only token: they still get the artifact, but no images or comment
+      # PRs from forks get a read-only token: they still get the PDF artifact, but no site or comment
       SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - name: Checkout (full history)
@@ -43,6 +44,23 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
+      - name: Find what this PR changes
+        id: changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "origin/${BASE_REF}" HEAD -- '*.kicad_sch' '*.kicad_pcb')
+          parts=()
+          grep -q '\.kicad_sch$' <<<"$changed" && parts+=("schematic")
+          grep -q '\.kicad_pcb$' <<<"$changed" && parts+=("PCB")
+          case ${#parts[@]} in
+            0) summary="no schematic or PCB changes" ;;
+            1) summary="${parts[0]}" ;;
+            *) summary="${parts[0]} and ${parts[1]}" ;;
+          esac
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+          echo "Changed: $summary"
+
       # The KiBot action runs as root in a container, but the checkout belongs to
       # the runner user, so git refuses to touch it ("dubious ownership").
       # $RUNNER_TEMP/_github_home is mounted as $HOME inside the container, so a
@@ -52,7 +70,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/_github_home"
           git config --file "$RUNNER_TEMP/_github_home/.gitconfig" --add safe.directory '*'
 
-      - name: Generate visual diff with KiBot
+      - name: Generate KiRi site and diff PDFs with KiBot
         uses: INTI-CMNB/KiBot@v2_k10
         with:
           config: .kibot/config_diff.yml
@@ -61,38 +79,33 @@ jobs:
           board: KiCad-git-tests.kicad_pcb
 
       - name: Upload diff PDFs as a build artifact
+        id: pdfs
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: kicad-diff-pr-${{ github.event.pull_request.number }}
-          path: kibot-diff
+          path: kibot-diff/diff
           if-no-files-found: error
 
-      - name: Render diff pages as PNG
-        if: env.SAME_REPO == 'true'
-        env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          # poppler-utils provides pdftoppm; retry with a fresh package index if the cached one is stale
-          sudo apt-get install -y -qq poppler-utils >/dev/null \
-            || { sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils >/dev/null; }
-
-          short="${HEAD_SHA::7}"
-          # One folder per pushed commit, so browsers and GitHub's image proxy never show a stale cached image
-          out="$RUNNER_TEMP/diff-png/$short"
-          mkdir -p "$out"
-          find kibot-diff -name '*.pdf' -print0 | while IFS= read -r -d '' pdf; do
-            pdftoppm -png -r 150 "$pdf" "$out/$(basename "$pdf" .pdf)"
-          done
-          ls -l "$out"
-          echo "SHORT_SHA=$short" >> "$GITHUB_ENV"
-
-      - name: Publish images to the pr-diffs branch
+      - name: Publish the KiRi site to the pr-diffs branch
         if: env.SAME_REPO == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash .github/scripts/update-pr-diffs-branch.sh "$PR" "$RUNNER_TEMP/diff-png"
+        run: |
+          test -f kibot-diff/kiri/index.html || { echo "::error::KiRi did not produce a site"; exit 1; }
+          bash .github/scripts/update-pr-diffs-branch.sh "$PR" kibot-diff/kiri
+
+      # Pushes made with GITHUB_TOKEN never trigger a Pages build, but starting a
+      # workflow does. The deploy workflow runs from the default branch, so on the
+      # PR that first adds it this fails harmlessly until it is merged.
+      - name: Start the GitHub Pages deploy
+        if: env.SAME_REPO == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          gh workflow run kicad-pages.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH" \
+            || echo "::warning::Could not start kicad-pages.yml on $DEFAULT_BRANCH (not merged yet?). The site is saved on the pr-diffs branch and goes live on the next deploy."
 
       - name: Post or update the PR comment
         if: env.SAME_REPO == 'true'
@@ -100,36 +113,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_REF: ${{ github.head_ref }}
           BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CHANGED: ${{ steps.changes.outputs.summary }}
+          PDF_URL: ${{ steps.pdfs.outputs.artifact-url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
           marker='<!-- kicad-visual-diff -->'
-          img_base="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/pr-diffs/pr-${PR}/${SHORT_SHA}"
+          owner=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          site="https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/pr-${PR}/"
           body="$RUNNER_TEMP/diff-comment.md"
 
-          cd "$RUNNER_TEMP/diff-png/$SHORT_SHA"
-          {
-            echo "$marker"
-            echo "## KiCad visual diff"
-            echo
-            echo "\`${HEAD_REF}\` @ ${SHORT_SHA} compared with \`${BASE_REF}\`: **green** = added, **red** = removed."
-            for kind in sch:Schematic pcb:PCB; do
-              pngs=( *diff_"${kind%%:*}"*.png )
-              [ ${#pngs[@]} -eq 0 ] && continue
-              echo
-              echo "<details open><summary><b>${kind#*:}</b> (${#pngs[@]} page(s))</summary>"
-              echo
-              # Blank line after each image so pages stack instead of sitting side by side
-              for png in "${pngs[@]}"; do
-                echo "![${png}](${img_base}/${png})"
-                echo
-              done
-              echo "</details>"
-            done
-            echo
-            echo "<sub>Updated on every push to this PR. Full-resolution PDFs: artifacts of [this workflow run](${RUN_URL}).</sub>"
-          } > "$body"
+          cat > "$body" <<EOF
+          ${marker}
+          ## KiCad visual diff
+
+          ### [Open the interactive diff for this PR](${site})
+
+          This PR changes: **${CHANGED}**. Comparing \`${HEAD_REF}\` @ ${HEAD_SHA::7} with \`${BASE_REF}\`.
+
+          <details><summary>Using the viewer</summary>
+
+          - Switch between the schematic and the layout at the top of the page.
+          - Pick a schematic sheet or a PCB layer from the list; press <kbd>i</kbd> for keyboard shortcuts.
+          - Scroll to zoom, drag to pan.
+          - The two versions are labelled **This PR (merged into main)** and **main**.
+
+          </details>
+
+          <sub>The page goes live about a minute after each push. PDF version: [download](${PDF_URL}) · [workflow run](${RUN_URL})</sub>
+          EOF
 
           # Edit our previous comment instead of adding a new one on every push
           ids=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
@@ -149,7 +162,8 @@ jobs:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # remove the site from the pr-diffs branch
+      actions: write  # start the GitHub Pages deploy workflow
     steps:
       - name: Checkout the helper script
         uses: actions/checkout@v7
@@ -158,8 +172,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/scripts
 
-      - name: Remove this PR's images from the pr-diffs branch
+      - name: Remove this PR's site from the pr-diffs branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
         run: bash .github/scripts/update-pr-diffs-branch.sh "$PR"
+
+      - name: Start the GitHub Pages deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          gh workflow run kicad-pages.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH" \
+            || echo "::warning::Could not start kicad-pages.yml on $DEFAULT_BRANCH; the removal goes live on the next deploy."

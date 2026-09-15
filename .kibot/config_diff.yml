@@ -5,15 +5,26 @@
 # PR (GitHub checks out the PR merged into main, so the diff shows exactly
 # what merging would change).
 #
-# Colours: green = added by the PR, red = removed by the PR.
-#
-# If you ever rename the main branch, change `old` below and the `branches`
-# filter in kicad-diff.yml together.
+# If you ever rename the main branch, change `origin/main` below and the
+# `branches` filter in kicad-diff.yml together.
 
 kibot:
   version: 1
 
 outputs:
+  # Interactive web viewer, published to GitHub Pages and linked from the PR.
+  - name: kiri
+    comment: Interactive visual diff (KiRi) of this PR against main
+    type: kiri
+    dir: kiri
+    options:
+      # Newest first, like git log: KiRi shows the first entry as the new version
+      commits: [HEAD, origin/main]
+      labels: ['This PR (merged into main)', 'main']
+      # CI checkouts are clean; never add a "local changes" entry
+      include_dirty: false
+
+  # Static PDFs (green = added, red = removed), kept as a downloadable fallback.
   - name: diff_pcb
     comment: PCB changes vs main (green added, red removed)
     type: diff
