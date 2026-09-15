@@ -5,7 +5,7 @@
 	(uuid "e63e39d7-6ac0-4ffd-8aa3-1841a4541b55")
 	(paper "A4")
 	(title_block
-		(date "mar. 31 mars 2015")
+		(date "2026-09-15")
 	)
 	(lib_symbols
 		(symbol "Device:LED_Dual_Bidirectional"
@@ -730,17 +730,6 @@
 			)
 		)
 		(uuid "0647a7f4-5acc-4592-8fdd-76dfedea9317")
-	)
-	(text "* Indicates a PWM-capable pin"
-		(exclude_from_sim no)
-		(at 177.8 180.34 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "c364973a-9a67-4667-8185-a3a5c6c6cbdf")
 	)
 	(symbol
 		(lib_id "Device:LED_Dual_Bidirectional")
