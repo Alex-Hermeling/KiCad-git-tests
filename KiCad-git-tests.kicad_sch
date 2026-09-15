@@ -708,8 +708,8 @@
 		)
 	)
 	(rectangle
-		(start 59.69 19.05)
-		(end 90.17 64.77)
+		(start 78.74 20.32)
+		(end 109.22 66.04)
 		(stroke
 			(width 0)
 			(type default)
@@ -721,7 +721,7 @@
 	)
 	(text "Demo Schematic\n"
 		(exclude_from_sim no)
-		(at 73.406 22.86 0)
+		(at 92.456 24.13 0)
 		(effects
 			(font
 				(size 1.905 1.905)
@@ -744,7 +744,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED_Dual_Bidirectional")
-		(at 74.93 49.53 90)
+		(at 93.98 50.8 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -755,7 +755,7 @@
 		(fields_autoplaced yes)
 		(uuid "3c546a10-00bf-432a-98bf-95fb1271a77e")
 		(property "Reference" "D1"
-			(at 81.28 47.7646 90)
+			(at 100.33 49.0346 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -766,7 +766,7 @@
 			)
 		)
 		(property "Value" "LED_Dual_Bidirectional"
-			(at 81.28 50.3046 90)
+			(at 100.33 51.5746 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -778,7 +778,7 @@
 			)
 		)
 		(property "Footprint" "LED_SMD:LED_1812_4532Metric_Pad1.30x3.40mm_HandSolder"
-			(at 74.93 49.53 0)
+			(at 93.98 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -789,7 +789,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 74.93 49.53 0)
+			(at 93.98 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -800,7 +800,7 @@
 			)
 		)
 		(property "Description" "Dual LED, bidirectional"
-			(at 74.93 49.53 0)
+			(at 93.98 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -827,7 +827,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 74.93 34.29 0)
+		(at 93.98 35.56 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -838,7 +838,7 @@
 		(fields_autoplaced yes)
 		(uuid "9b7a8cb4-26ee-4d62-aa9b-b78fd57748f6")
 		(property "Reference" "#PWR01"
-			(at 74.93 38.1 0)
+			(at 93.98 39.37 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -849,7 +849,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 74.93 29.21 0)
+			(at 93.98 30.48 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -859,7 +859,7 @@
 			)
 		)
 		(property "Footprint" "Converter_ACDC:Converter_ACDC_Vigortronix_VTX-214-010-1xx_THT"
-			(at 74.93 34.29 0)
+			(at 93.98 35.56 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -870,7 +870,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 74.93 34.29 0)
+			(at 93.98 35.56 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -881,7 +881,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 74.93 34.29 0)
+			(at 93.98 35.56 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -905,7 +905,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 74.93 57.15 0)
+		(at 93.98 58.42 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -915,7 +915,7 @@
 		(dnp no)
 		(uuid "db4a67cb-1d51-480a-8d81-5096fc9dd49e")
 		(property "Reference" "#PWR02"
-			(at 74.93 63.5 0)
+			(at 93.98 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -926,7 +926,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 76.2 61.976 0)
+			(at 95.25 63.246 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -936,7 +936,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 74.93 57.15 0)
+			(at 93.98 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -947,7 +947,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 74.93 57.15 0)
+			(at 93.98 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -958,7 +958,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 74.93 57.15 0)
+			(at 93.98 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -982,7 +982,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 74.93 38.1 0)
+		(at 93.98 39.37 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -993,7 +993,7 @@
 		(fields_autoplaced yes)
 		(uuid "efff54d7-42a1-45f2-974f-2bd091d85202")
 		(property "Reference" "R1"
-			(at 77.47 36.8299 0)
+			(at 96.52 38.0999 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1004,7 +1004,7 @@
 			)
 		)
 		(property "Value" "R"
-			(at 77.47 39.3699 0)
+			(at 96.52 40.6399 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1015,7 +1015,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0612_1632Metric"
-			(at 73.152 38.1 90)
+			(at 92.202 39.37 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1026,7 +1026,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 74.93 38.1 0)
+			(at 93.98 39.37 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1037,7 +1037,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 74.93 38.1 0)
+			(at 93.98 39.37 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
