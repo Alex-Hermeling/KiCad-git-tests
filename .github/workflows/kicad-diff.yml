@@ -1,0 +1,68 @@
+name: KiCad visual diff
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.kicad_sch'
+      - '**.kicad_pcb'
+      - '**.kicad_pro'
+      - '.kibot/config_diff.yml'
+      - '.github/workflows/kicad-diff.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kicad-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v7
+        with:
+          # KiBot checks out the old version itself, so it needs real history,
+          # not the default single-commit shallow clone.
+          fetch-depth: 0
+
+      - name: Fetch the target branch
+        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+      # The KiBot action runs as root in a container, but the checkout belongs to
+      # the runner user, so git refuses to touch it ("dubious ownership").
+      # $RUNNER_TEMP/_github_home is mounted as $HOME inside the container, so a
+      # setting written there is picked up by git in KiBot.
+      - name: Let git inside the KiBot container trust the checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/_github_home"
+          git config --file "$RUNNER_TEMP/_github_home/.gitconfig" --add safe.directory '*'
+
+      - name: Generate visual diff with KiBot
+        uses: INTI-CMNB/KiBot@v2_k10
+        with:
+          config: .kibot/config_diff.yml
+          dir: kibot-diff
+          schema: KiCad-git-tests.kicad_sch
+          board: KiCad-git-tests.kicad_pcb
+
+      - name: Upload diff as a build artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kicad-diff-pr-${{ github.event.pull_request.number }}
+          path: kibot-diff
+          if-no-files-found: error
+
+      - name: Add a pointer to the job summary
+        if: success()
+        run: |
+          {
+            echo "### KiCad visual diff"
+            echo
+            echo "Compared \`${{ github.head_ref }}\` against \`${{ github.base_ref }}\`."
+            echo "Download **kicad-diff-pr-${{ github.event.pull_request.number }}** from the artifacts of this run."
+            echo "Green = added by this PR, red = removed."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -116,3 +116,29 @@ git remote add origin git@github.com:Alex-Hermeling/KiCad-git-tests.git
 git push -u origin main
 ```
 
+---
+
+## 5. Automated previews and visual diffs (GitHub Actions + KiBot)
+
+| Workflow | Trigger | Produces |
+|---|---|---|
+| `.github/workflows/kicad-export.yml` | push to `main` | Schematic SVG/PDF, PCB top/bottom PNG — uploaded as an artifact **and** published to the `previews` branch |
+| `.github/workflows/kicad-diff.yml` | pull request into `main` | Red/green overlay PDFs of the schematic and PCB vs `main` — uploaded as an artifact |
+
+KiBot settings live in `.kibot/config.yml` (previews) and `.kibot/config_diff.yml` (diff).
+
+### Latest render of `main`
+
+The images below come from the `previews` branch, which the export workflow
+overwrites on every run. They appear after the first run.
+
+**Schematic** ([PDF](https://github.com/Alex-Hermeling/KiCad-git-tests/raw/previews/schematic/schematic.pdf))
+
+![Schematic](https://github.com/Alex-Hermeling/KiCad-git-tests/raw/previews/schematic/schematic.svg)
+
+**PCB**
+
+| Top | Bottom |
+|---|---|
+| ![PCB top](https://github.com/Alex-Hermeling/KiCad-git-tests/raw/previews/pcb/pcb-top.png) | ![PCB bottom](https://github.com/Alex-Hermeling/KiCad-git-tests/raw/previews/pcb/pcb-bottom.png) |
+

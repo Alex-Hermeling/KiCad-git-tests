@@ -41,6 +41,10 @@ fab/
 *-pos.csv
 *-bom.csv
 
+# KiBot output, if you run the CI configs locally
+kibot-output/
+kibot-diff/
+
 # ---------- OS / editor ----------
 .DS_Store
 *~
